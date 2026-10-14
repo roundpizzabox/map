@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>어버이날 선물 준비 - 카카오맵</title>
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome 아이콘 (CDN) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Noto Sans KR) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS/JS (미리보기 환경 대체용 지도 엔진) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- 
+        =================================================================================
+        [카카오맵 API 키 입력 위치]
+        아래 appkey=YOUR_KAKAO_MAP_API_KEY 부문의 YOUR_KAKAO_MAP_API_KEY 를 
+        카카오 개발자 콘솔(Kakao Developers)에서 발급받으신 'JavaScript 키'로 변경해 주세요!
+        =================================================================================
+    -->
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=830ce74dec34efe760bc1541edecfd9e&libraries=services"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        carnationRed: '#E63946',
+                        carnationPink: '#FF758F'
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 커스텀 스크롤바 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #ff758f;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #e63946;
+        }
+        /* 지도 커스텀 오버레이 팝업 스타일 */
+        .custom-overlay {
+            position: relative;
+            border-radius: 12px;
+            border: 1px solid #E5E7EB;
+            background: #ffffff;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+            padding: 12px 14px;
+            min-width: 220px;
+            font-family: 'Noto Sans KR', sans-serif;
+            z-index: 1000;
+        }
+        .leaflet-popup-content-wrapper {
+            padding: 0;
+            background: transparent;
+            box-shadow: none;
+        }
+        .leaflet-popup-content {
+            margin: 0;
+            width: auto !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <!-- 좌측 사이드바 (탭 메뉴 및 장소 목록) -->
+    <aside class="w-full md:w-96 bg-white h-1/2 md:h-full flex flex-col z-10 shadow-xl border-r border-slate-200">
+        <!-- 앱 헤더 -->
+        <header class="bg-gradient-to-r from-carnationRed to-carnationPink p-4 text-white shadow-md flex-shrink-0">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/20 p-2 rounded-full">
+                    <i class="fa-solid fa-heart text-xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight">어버이날 선물 준비 🎁</h1>
+                    <p class="text-xs text-rose-100">카카오맵 감사 코스 만들기</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- 3개 탭 버튼 영역 -->
+        <nav class="flex border-b border-slate-200 bg-slate-100 p-1 space-x-1 flex-shrink-0">
+            <button id="tab1Btn" onclick="switchTab(1)" class="flex-1 py-2 px-1 text-xs md:text-sm font-semibold rounded-md transition-all duration-200 flex flex-col items-center justify-center space-y-1 bg-white text-carnationRed shadow-sm">
+                <i class="fa-solid fa-gift"></i>
+                <span>선물 준비 1</span>
+            </button>
+            <button id="tab2Btn" onclick="switchTab(2)" class="flex-1 py-2 px-1 text-xs md:text-sm font-semibold rounded-md transition-all duration-200 flex flex-col items-center justify-center space-y-1 text-slate-500 hover:text-slate-800 hover:bg-slate-200">
+                <i class="fa-solid fa-store"></i>
+                <span>선물 준비 2</span>
+            </button>
+            <button id="tab3Btn" onclick="switchTab(3)" class="flex-1 py-2 px-1 text-xs md:text-sm font-semibold rounded-md transition-all duration-200 flex flex-col items-center justify-center space-y-1 text-slate-500 hover:text-slate-800 hover:bg-slate-200">
+                <i class="fa-solid fa-route"></i>
+                <span>목적지 보기</span>
+            </button>
+        </nav>
+
+        <!-- 탭 1 세부 검색 버튼 (꽃 / 제과) -->
+        <div id="tab1SubCategory" class="p-2.5 bg-slate-50 border-b border-slate-200 flex space-x-2 flex-shrink-0">
+            <button id="searchFlowerBtn" onclick="searchPlaces('꽃')" class="flex-1 py-1.5 px-3 bg-rose-500 hover:bg-rose-600 text-white text-xs font-medium rounded-lg shadow-sm transition flex items-center justify-center space-x-1.5">
+                <i class="fa-solid fa-spa"></i>
+                <span>꽃 검색</span>
+            </button>
+            <button id="searchBakeryBtn" onclick="searchPlaces('제과')" class="flex-1 py-1.5 px-3 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-lg shadow-sm transition flex items-center justify-center space-x-1.5">
+                <i class="fa-solid fa-cake-candles"></i>
+                <span>제과 검색</span>
+            </button>
+        </div>
+
+        <!-- 탭 3 전용 컨트롤 (목적지 요약, 경로 안내, 초기화 버튼) -->
+        <div id="tab3Controls" class="p-3 bg-rose-50 border-b border-rose-200 hidden flex-col space-y-2 flex-shrink-0">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-700 flex items-center">
+                    <i class="fa-solid fa-star text-amber-400 mr-1"></i> 선택된 목적지: <span id="destinationCount" class="ml-1 text-carnationRed font-extrabold text-sm">0</span>개
+                </span>
+                <button onclick="clearDestinations()" class="px-2.5 py-1 bg-white hover:bg-rose-100 text-rose-600 border border-rose-300 text-xs rounded-md transition font-medium flex items-center space-x-1 shadow-sm">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>초기화</span>
+                </button>
+            </div>
+            <!-- 경로 계산 정보 표시 -->
+            <div id="routeSummary" class="text-xs bg-white p-2.5 rounded-lg border border-rose-200 text-slate-600 space-y-1">
+                <p class="flex items-center"><i class="fa-solid fa-person-walking text-rose-500 mr-2 w-4"></i> 총 거리: <strong id="totalDistance" class="ml-1 text-slate-800">0 km</strong></p>
+                <p class="flex items-center"><i class="fa-regular fa-clock text-rose-500 mr-2 w-4"></i> 예상 도보 시간: <strong id="totalTime" class="ml-1 text-carnationRed">약 0분</strong></p>
+            </div>
+        </div>
+
+        <!-- 장소 목록 영역 -->
+        <div class="flex-1 overflow-y-auto p-3" id="placeListContainer">
+            <ul id="placeList" class="space-y-2">
+                <!-- 동적으로 장소 목록 표시 -->
+            </ul>
+        </div>
+    </aside>
+
+    <!-- 우측 지도 영역 -->
+    <main class="flex-1 h-1/2 md:h-full relative">
+        <div id="map" class="w-full h-full"></div>
+
+        <!-- 내 위치 이동 버튼 -->
+        <button onclick="moveToCurrentLocation()" class="absolute bottom-5 right-5 bg-white text-slate-700 hover:text-carnationRed p-3 rounded-full shadow-lg border border-slate-200 z-20 transition-all hover:scale-105 active:scale-95 flex items-center justify-center" title="내 위치로 이동">
+            <i class="fa-solid fa-location-crosshairs text-lg"></i>
+        </button>
+    </main>
+
+    <script>
+        // 전역 변수 선언
+        let map; // 지도 객체
+        let ps; // 장소 검색 서비스 객체
+        let currentOverlay = null; // 현재 열린 커스텀 오버레이 팝업
+        let currentTab = 1; // 현재 활성화된 탭 번호
+
+        // 기본 위치 설정 (서울시청)
+        let userLocation = {
+            lat: 37.566826,
+            lng: 126.9786567
+        };
+
+        // 마커 및 장소 데이터 저장 배열
+        let searchMarkers = []; // 검색 마커 목록
+        let currentPlaces = []; // 현재 검색된 장소 데이터
+        let destinationPlaces = []; // 탭 3 목적지 데이터 목록
+        let destinationMarkers = []; // 탭 3 목적지 마커 목록
+        let polyline = null; // 탭 3 경로 선 객체
+
+        // 페이지 로드 완료 시 실행
+        window.onload = function () {
+            initPolyfillIfNeeded();
+            initializeMap();
+        };
+
+        // Kakao SDK 상태 확인 및 폴리필 처리
+        function initPolyfillIfNeeded() {
+            if (typeof window.kakao !== 'undefined' && window.kakao.maps && window.kakao.maps.services) {
+                return;
+            }
+
+            // API 키 미설정 시에도 에러 없이 미리보기 가능한 Mock 엔진 생성
+            window.kakao = {
+                maps: {
+                    LatLng: function (lat, lng) {
+                        this.lat = lat;
+                        this.lng = lng;
+                        this.getLat = () => this.lat;
+                        this.getLng = () => this.lng;
+                    },
+                    LatLngBounds: function () {
+                        this.bounds = [];
+                        this.extend = function (latLng) {
+                            this.bounds.push([latLng.lat, latLng.lng]);
+                        };
+                    },
+                    Map: function (container, options) {
+                        const center = [options.center.lat, options.center.lng];
+                        const leafletMap = L.map(container).setView(center, 15);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(leafletMap);
+
+                        this._leafletMap = leafletMap;
+                        this.setCenter = (pos) => leafletMap.panTo([pos.lat, pos.lng]);
+                        this.panTo = (pos) => leafletMap.panTo([pos.lat, pos.lng]);
+                        this.setBounds = (bounds) => {
+                            if (bounds.bounds && bounds.bounds.length > 0) {
+                                leafletMap.fitBounds(bounds.bounds, { padding: [30, 30] });
+                            }
+                        };
+                    },
+                    Marker: function (options) {
+                        this.options = options;
+                        const pos = [options.position.lat, options.position.lng];
+                        this._leafletMarker = L.marker(pos);
+                        if (options.map) this._leafletMarker.addTo(options.map._leafletMap);
+
+                        this.setMap = (targetMap) => {
+                            if (targetMap) this._leafletMarker.addTo(targetMap._leafletMap);
+                            else this._leafletMarker.remove();
+                        };
+                    },
+                    CustomOverlay: function (options) {
+                        const pos = [options.position.lat, options.position.lng];
+                        const popup = L.popup({ closeButton: false, autoClose: false, closeOnClick: false })
+                            .setLatLng(pos)
+                            .setContent(options.content);
+
+                        this._leafletPopup = popup;
+                        if (options.map) popup.openOn(options.map._leafletMap);
+
+                        this.setMap = (targetMap) => {
+                            if (targetMap) popup.openOn(targetMap._leafletMap);
+                            else if (options.map) options.map._leafletMap.closePopup(popup);
+                        };
+                    },
+                    Polyline: function (options) {
+                        const latLngs = options.path.map(p => [p.lat, p.lng]);
+                        this._leafletPolyline = L.polyline(latLngs, { color: options.strokeColor || '#E63946', weight: 5 });
+                        if (options.map) this._leafletPolyline.addTo(options.map._leafletMap);
+
+                        this.setMap = (targetMap) => {
+                            if (targetMap) this._leafletPolyline.addTo(targetMap._leafletMap);
+                            else this._leafletPolyline.remove();
+                        };
+
+                        this.getLength = () => {
+                            let totalDistance = 0;
+                            for (let i = 0; i < options.path.length - 1; i++) {
+                                const p1 = L.latLng(options.path[i].lat, options.path[i].lng);
+                                const p2 = L.latLng(options.path[i + 1].lat, options.path[i + 1].lng);
+                                totalDistance += p1.distanceTo(p2);
+                            }
+                            return totalDistance;
+                        };
+                    },
+                    event: {
+                        addListener: function (target, eventName, handler) {
+                            if (target._leafletMarker) target._leafletMarker.on('click', handler);
+                        }
+                    },
+                    services: {
+                        Status: { OK: 'OK' },
+                        SortBy: { ACCURACY: 'ACCURACY' },
+                        Places: function () {
+                            this.keywordSearch = function (keyword, callback) {
+                                const mockData = generateMockData(keyword, userLocation);
+                                setTimeout(() => callback(mockData, 'OK'), 100);
+                            };
+                        }
+                    }
+                }
+            };
+        }
+
+        // 모의 데이터 생성 함수
+        function generateMockData(keyword, baseLoc) {
+            const presets = {
+                '꽃': [
+                    { name: '카네이션 로맨스 플라워', category: '꽃집', phone: '02-555-0101', dx: 0.003, dy: 0.002 },
+                    { name: '감사 마음 꽃다발 아틀리에', category: '꽃집', phone: '02-555-0102', dx: -0.002, dy: 0.004 },
+                    { name: '어버이날 카네이션 전문점', category: '꽃집', phone: '02-555-0103', dx: 0.004, dy: -0.003 }
+                ],
+                '제과': [
+                    { name: '카네이션 수제 베이커리', category: '제과점', phone: '02-333-0201', dx: 0.002, dy: -0.004 },
+                    { name: '감사 케이크 명가', category: '제과점', phone: '02-333-0202', dx: -0.004, dy: 0.001 }
+                ],
+                '문방구': [
+                    { name: '드림 카네이션 문구점', category: '문구점', phone: '02-777-0301', dx: 0.001, dy: 0.003 },
+                    { name: '감사 캘리그라피 카드방', category: '문구점', phone: '02-777-0302', dx: -0.003, dy: 0.002 }
+                ]
+            };
+            const list = presets[keyword] || presets['꽃'];
+            return list.map((item, idx) => ({
+                id: `mock_${keyword}_${idx}`,
+                place_name: item.name,
+                category_group_name: item.category,
+                phone: item.phone,
+                road_address_name: `서울특별시 중구 세종대로 ${100 + idx * 10}`,
+                address_name: `서울특별시 중구 태평로1가 ${10 + idx}`,
+                x: (baseLoc.lng + item.dx).toString(),
+                y: (baseLoc.lat + item.dy).toString()
+            }));
+        }
+
+        // 지도 생성 및 초기화
+        function initializeMap() {
+            const container = document.getElementById('map');
+            const options = {
+                center: new kakao.maps.LatLng(userLocation.lat, userLocation.lng),
+                level: 4
+            };
+
+            map = new kakao.maps.Map(container, options);
+            ps = new kakao.maps.services.Places();
+
+            // 현재 위치 가져오기
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function (pos) {
+                        userLocation.lat = pos.coords.latitude;
+                        userLocation.lng = pos.coords.longitude;
+                        const centerPos = new kakao.maps.LatLng(userLocation.lat, userLocation.lng);
+                        map.setCenter(centerPos);
+                        searchPlaces('꽃');
+                    },
+                    function () {
+                        searchPlaces('꽃');
+                    }
+                );
+            } else {
+                searchPlaces('꽃');
+            }
+        }
+
+        // 탭 전환 핸들러
+        function switchTab(tabNum) {
+            currentTab = tabNum;
+            closeOverlay();
+
+            // 탭 버튼 스타일 업데이트
+            [1, 2, 3].forEach(num => {
+                const btn = document.getElementById(`tab${num}Btn`);
+                if (num === tabNum) {
+                    btn.className = "flex-1 py-2 px-1 text-xs md:text-sm font-semibold rounded-md transition-all duration-200 flex flex-col items-center justify-center space-y-1 bg-white text-carnationRed shadow-sm";
+                } else {
+                    btn.className = "flex-1 py-2 px-1 text-xs md:text-sm font-semibold rounded-md transition-all duration-200 flex flex-col items-center justify-center space-y-1 text-slate-500 hover:text-slate-800 hover:bg-slate-200";
+                }
+            });
+
+            const subCat = document.getElementById('tab1SubCategory');
+            const tab3Ctrl = document.getElementById('tab3Controls');
+
+            if (tabNum === 1) {
+                subCat.classList.remove('hidden');
+                subCat.classList.add('flex');
+                tab3Ctrl.classList.add('hidden');
+                tab3Ctrl.classList.remove('flex');
+                clearSearchMarkers();
+                searchPlaces('꽃');
+            } else if (tabNum === 2) {
+                subCat.classList.add('hidden');
+                subCat.classList.remove('flex');
+                tab3Ctrl.classList.add('hidden');
+                tab3Ctrl.classList.remove('flex');
+                clearSearchMarkers();
+                searchPlaces('문방구');
+            } else if (tabNum === 3) {
+                subCat.classList.add('hidden');
+                subCat.classList.remove('flex');
+                tab3Ctrl.classList.remove('hidden');
+                tab3Ctrl.classList.add('flex');
+                clearSearchMarkers();
+                renderDestinationTab();
+            }
+        }
+
+        // 키워드 장소 검색 실행
+        function searchPlaces(keyword) {
+            closeOverlay();
+            clearSearchMarkers();
+
+            if (currentTab === 1) {
+                const flowerBtn = document.getElementById('searchFlowerBtn');
+                const bakeryBtn = document.getElementById('searchBakeryBtn');
+                if (keyword === '꽃') {
+                    flowerBtn.className = "flex-1 py-1.5 px-3 bg-rose-600 text-white text-xs font-semibold rounded-lg shadow transition flex items-center justify-center space-x-1.5 ring-2 ring-rose-300";
+                    bakeryBtn.className = "flex-1 py-1.5 px-3 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-lg shadow-sm transition flex items-center justify-center space-x-1.5 opacity-80";
+                } else {
+                    flowerBtn.className = "flex-1 py-1.5 px-3 bg-rose-500 hover:bg-rose-600 text-white text-xs font-medium rounded-lg shadow-sm transition flex items-center justify-center space-x-1.5 opacity-80";
+                    bakeryBtn.className = "flex-1 py-1.5 px-3 bg-amber-600 text-white text-xs font-semibold rounded-lg shadow transition flex items-center justify-center space-x-1.5 ring-2 ring-amber-300";
+                }
+            }
+
+            const searchOption = {
+                location: new kakao.maps.LatLng(userLocation.lat, userLocation.lng),
+                radius: 3000,
+                sort: kakao.maps.services.SortBy.ACCURACY
+            };
+
+            ps.keywordSearch(keyword, placesSearchCallback, searchOption);
+        }
+
+        // 검색 완료 콜백
+        function placesSearchCallback(data, status) {
+            if (status === kakao.maps.services.Status.OK) {
+                currentPlaces = data;
+                displayPlaces(data);
+            } else {
+                renderEmptyList("주변 검색 결과가 없습니다.");
+            }
+        }
+
+        // 검색 결과 장소 마커 및 리스트 표시
+        function displayPlaces(places) {
+            const listEl = document.getElementById('placeList');
+            listEl.innerHTML = '';
+            const bounds = new kakao.maps.LatLngBounds();
+
+            places.forEach((place, index) => {
+                const placePosition = new kakao.maps.LatLng(place.y, place.x);
+
+                const marker = new kakao.maps.Marker({
+                    position: placePosition,
+                    map: map
+                });
+                searchMarkers.push(marker);
+
+                kakao.maps.event.addListener(marker, 'click', function () {
+                    showOverlay(place, placePosition);
+                });
+
+                const isFavorited = destinationPlaces.some(d => d.id === place.id);
+                const itemEl = document.createElement('li');
+                itemEl.className = 'p-3 bg-white border border-slate-200 rounded-xl hover:border-rose-400 hover:shadow-md transition cursor-pointer flex flex-col space-y-1.5';
+                
+                itemEl.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-sm text-slate-800 hover:text-carnationRed flex items-center">
+                            <span class="w-5 h-5 bg-rose-100 text-carnationRed text-xs font-bold rounded-full flex items-center justify-center mr-1.5">${index + 1}</span>
+                            ${place.place_name}
+                        </span>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">${place.category_group_name || '장소'}</span>
+                    </div>
+                    <p class="text-xs text-slate-500 truncate pl-6">${place.road_address_name || place.address_name}</p>
+                    <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                        <span class="text-[11px] text-slate-400 pl-6">${place.phone ? place.phone : '전화번호 없음'}</span>
+                        <button onclick="toggleFavoriteById('${place.id}', event)" class="text-xs px-2.5 py-1 rounded-md border ${isFavorited ? 'bg-amber-50 text-amber-600 border-amber-300 font-bold' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-500'} flex items-center space-x-1 shadow-sm transition">
+                            <i class="${isFavorited ? 'fa-solid' : 'fa-regular'} fa-star text-amber-400"></i>
+                            <span>${isFavorited ? '담김' : '담기'}</span>
+                        </button>
+                    </div>
+                `;
+
+                itemEl.addEventListener('click', function (e) {
+                    if (e.target.closest('button')) return;
+                    map.panTo(placePosition);
+                    showOverlay(place, placePosition);
+                });
+
+                listEl.appendChild(itemEl);
+                bounds.extend(placePosition);
+            });
+
+            if (places.length > 0) {
+                map.setBounds(bounds);
+            }
+        }
+
+        // 검색 마커 삭제
+        function clearSearchMarkers() {
+            searchMarkers.forEach(m => m.setMap(null));
+            searchMarkers = [];
+        }
+
+        // 마커 클릭 팝업(커스텀 오버레이) 표시
+        function showOverlay(place, position) {
+            closeOverlay();
+
+            const isFavorited = destinationPlaces.some(d => d.id === place.id);
+            const content = document.createElement('div');
+            content.className = 'custom-overlay';
+            content.innerHTML = `
+                <div class="flex justify-between items-start mb-1.5">
+                    <strong class="text-sm font-bold text-slate-800 pr-3">${place.place_name}</strong>
+                    <button onclick="closeOverlay()" class="text-slate-400 hover:text-slate-600 text-xs p-1"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <p class="text-xs text-slate-500 mb-2 leading-relaxed">${place.road_address_name || place.address_name}</p>
+                <div class="flex items-center justify-between border-t border-slate-100 pt-2 mt-1">
+                    <span class="text-[11px] text-slate-400">${place.phone || ''}</span>
+                    <button id="popStarBtn" class="px-3 py-1 text-xs font-medium rounded-full ${isFavorited ? 'bg-amber-400 text-white font-bold' : 'bg-slate-100 text-slate-700 hover:bg-amber-100'} transition flex items-center space-x-1 shadow-sm">
+                        <i class="fa-solid fa-star ${isFavorited ? 'text-white' : 'text-amber-400'}"></i>
+                        <span>${isFavorited ? '목적지 취소' : '★ 목적지 추가'}</span>
+                    </button>
+                </div>
+            `;
+
+            const starBtn = content.querySelector('#popStarBtn');
+            starBtn.onclick = function () {
+                toggleFavorite(place);
+                showOverlay(place, position);
+            };
+
+            currentOverlay = new kakao.maps.CustomOverlay({
+                content: content,
+                map: map,
+                position: position,
+                xAnchor: 0.5,
+                yAnchor: 1.1
+            });
+        }
+
+        // 팝업 닫기
+        function closeOverlay() {
+            if (currentOverlay) {
+                currentOverlay.setMap(null);
+                currentOverlay = null;
+            }
+        }
+
+        // 장소 ID 기반 토글
+        function toggleFavoriteById(placeId, event) {
+            if (event) event.stopPropagation();
+            const place = currentPlaces.find(p => p.id === placeId) || destinationPlaces.find(p => p.id === placeId);
+            if (place) {
+                toggleFavorite(place);
+                if (currentTab === 3) {
+                    renderDestinationTab();
+                } else {
+                    displayPlaces(currentPlaces);
+                }
+            }
+        }
+
+        // 목적지 목록 추가/삭제 토글
+        function toggleFavorite(place) {
+            const index = destinationPlaces.findIndex(d => d.id === place.id);
+            if (index > -1) {
+                destinationPlaces.splice(index, 1);
+            } else {
+                destinationPlaces.push(place);
+            }
+
+            document.getElementById('destinationCount').innerText = destinationPlaces.length;
+
+            if (currentTab === 3) {
+                renderDestinationTab();
+            }
+        }
+
+        // 탭 3 (목적지 보기) 랜더링
+        function renderDestinationTab() {
+            clearSearchMarkers();
+            clearDestinationMarkers();
+            closeOverlay();
+
+            const listEl = document.getElementById('placeList');
+            listEl.innerHTML = '';
+            document.getElementById('destinationCount').innerText = destinationPlaces.length;
+
+            if (destinationPlaces.length === 0) {
+                renderEmptyList("선택된 목적지가 없습니다.<br>탭 1, 2에서 팝업의 ★ 버튼을 눌러 목적지를 담아보세요!");
+                calculateAndDrawRoute();
+                return;
+            }
+
+            const bounds = new kakao.maps.LatLngBounds();
+
+            destinationPlaces.forEach((place, index) => {
+                const placePosition = new kakao.maps.LatLng(place.y, place.x);
+
+                const marker = new kakao.maps.Marker({
+                    position: placePosition,
+                    map: map
+                });
+                destinationMarkers.push(marker);
+
+                kakao.maps.event.addListener(marker, 'click', function () {
+                    showOverlay(place, placePosition);
+                });
+
+                const itemEl = document.createElement('li');
+                itemEl.className = 'p-3 bg-white border border-rose-200 rounded-xl hover:shadow-md transition cursor-pointer flex flex-col space-y-1 relative';
+                
+                itemEl.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-sm text-carnationRed flex items-center">
+                            <span class="w-5 h-5 bg-carnationRed text-white text-xs rounded-full flex items-center justify-center mr-1.5 font-normal">${index + 1}</span>
+                            ${place.place_name}
+                        </span>
+                        <button onclick="toggleFavoriteById('${place.id}', event)" class="text-rose-400 hover:text-rose-600 text-xs p-1" title="삭제">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-500 pl-6 truncate">${place.road_address_name || place.address_name}</p>
+                `;
+
+                itemEl.addEventListener('click', function (e) {
+                    if (e.target.closest('button')) return;
+                    map.panTo(placePosition);
+                    showOverlay(place, placePosition);
+                });
+
+                listEl.appendChild(itemEl);
+                bounds.extend(placePosition);
+            });
+
+            map.setBounds(bounds);
+            calculateAndDrawRoute();
+        }
+
+        // 경로선 그리기 및 시간 계산
+        function calculateAndDrawRoute() {
+            if (polyline) {
+                polyline.setMap(null);
+                polyline = null;
+            }
+
+            if (destinationPlaces.length < 2) {
+                document.getElementById('totalDistance').innerText = "0 km";
+                document.getElementById('totalTime').innerText = "약 0분";
+                return;
+            }
+
+            const path = destinationPlaces.map(p => new kakao.maps.LatLng(p.y, p.x));
+
+            polyline = new kakao.maps.Polyline({
+                path: path,
+                strokeWeight: 5,
+                strokeColor: '#E63946',
+                strokeOpacity: 0.85
+            });
+
+            polyline.setMap(map);
+
+            const totalMeter = polyline.getLength();
+            const totalKm = (totalMeter / 1000).toFixed(2);
+            const walkTimeMinutes = Math.round(totalMeter / 67); // 분당 67m 기준
+
+            document.getElementById('totalDistance').innerText = `${totalKm} km`;
+            document.getElementById('totalTime').innerText = `약 ${walkTimeMinutes}분`;
+        }
+
+        // 목적지 모두 초기화
+        function clearDestinations() {
+            if (destinationPlaces.length === 0) return;
+
+            destinationPlaces = [];
+            clearDestinationMarkers();
+            if (polyline) {
+                polyline.setMap(null);
+                polyline = null;
+            }
+            renderDestinationTab();
+        }
+
+        // 목적지 마커 지우기
+        function clearDestinationMarkers() {
+            destinationMarkers.forEach(m => m.setMap(null));
+            destinationMarkers = [];
+        }
+
+        // 빈 상태 안내 메시지
+        function renderEmptyList(message) {
+            const listEl = document.getElementById('placeList');
+            listEl.innerHTML = `
+                <div class="py-12 px-4 text-center text-slate-400">
+                    <i class="fa-solid fa-location-dot text-3xl mb-3 text-slate-300"></i>
+                    <p class="text-xs leading-relaxed">${message}</p>
+                </div>
+            `;
+        }
+
+        // 현재 위치로 이동
+        function moveToCurrentLocation() {
+            if (userLocation) {
+                const loc = new kakao.maps.LatLng(userLocation.lat, userLocation.lng);
+                map.panTo(loc);
+            }
+        }
+    </script>
+</body>
+</html>
