@@ -301,6 +301,82 @@
                 }
             };
         }
+        Marker: function (options) {
+                        this.options = options;
+                        const pos = [options.position.lat, options.position.lng];
+                        
+                        // 마커 이미지 커스텀 지원
+                        if (options.image && options.image.src) {
+                            const customIcon = L.icon({
+                                iconUrl: options.image.src,
+                                iconSize: [options.image.size.width, options.image.size.height],
+                                iconAnchor: [options.image.options?.offset?.x || 12, options.image.options?.offset?.y || 35]
+                            });
+                            this._leafletMarker = L.marker(pos, { icon: customIcon });
+                        } else {
+                            this._leafletMarker = L.marker(pos);
+                        }
+
+                        if (options.map) this._leafletMarker.addTo(options.map._leafletMap);
+
+                        this.setMap = (targetMap) => {
+                            if (targetMap) this._leafletMarker.addTo(targetMap._leafletMap);
+                            else this._leafletMarker.remove();
+                        };
+                    },
+                    CustomOverlay: function (options) {
+                        const pos = [options.position.lat, options.position.lng];
+                        const popup = L.popup({ closeButton: false, autoClose: false, closeOnClick: false })
+                            .setLatLng(pos)
+                            .setContent(options.content);
+
+                        this._leafletPopup = popup;
+                        if (options.map) popup.openOn(options.map._leafletMap);
+
+                        this.setMap = (targetMap) => {
+                            if (targetMap) popup.openOn(targetMap._leafletMap);
+                            else if (options.map) options.map._leafletMap.closePopup(popup);
+                        };
+                    },
+                    Polyline: function (options) {
+                        const latLngs = options.path.map(p => [p.lat, p.lng]);
+                        this._leafletPolyline = L.polyline(latLngs, { color: options.strokeColor || '#E63946', weight: 6, opacity: 0.8 });
+                        if (options.map) this._leafletPolyline.addTo(options.map._leafletMap);
+
+                        this.setMap = (targetMap) => {
+                            if (targetMap) this._leafletPolyline.addTo(targetMap._leafletMap);
+                            else this._leafletPolyline.remove();
+                        };
+
+                        this.getLength = () => {
+                            let totalDistance = 0;
+                            for (let i = 0; i < options.path.length - 1; i++) {
+                                const p1 = L.latLng(options.path[i].lat, options.path[i].lng);
+                                const p2 = L.latLng(options.path[i + 1].lat, options.path[i + 1].lng);
+                                totalDistance += p1.distanceTo(p2);
+                            }
+                            return totalDistance;
+                        };
+                    },
+                    event: {
+                        addListener: function (target, eventName, handler) {
+                            if (target._leafletMarker) target._leafletMarker.on('click', handler);
+                        }
+                    },
+                    services: {
+                        Status: { OK: 'OK' },
+                        SortBy: { ACCURACY: 'ACCURACY' },
+                        Places: function () {
+                            this.keywordSearch = function (keyword, callback) {
+                                const mockData = generateMockData(keyword, userLocation);
+                                setTimeout(() => callback(mockData, 'OK'), 100);
+                            };
+                        }
+                    }
+                }
+            };
+        }
+
 
         // 모의 데이터 생성 함수
         function generateMockData(keyword, baseLoc) {
