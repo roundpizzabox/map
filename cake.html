@@ -87,7 +87,7 @@
                     <i class="fa-solid fa-route text-xl text-white"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold tracking-tight">어버이날 준비 지도 🎁</h1>
+                    <h1 class="text-lg font-bold tracking-tight">어버이날 코스 내비 🎁</h1>
                     <p class="text-xs text-rose-100">내 위치 기반 현실적 보행 경로 안내</p>
                 </div>
             </div>
@@ -212,6 +212,19 @@
             // API 키 미설정 시에도 에러 없이 미리보기 가능한 Mock 엔진 생성
             window.kakao = {
                 maps: {
+                    Size: function(width, height) {
+                        this.width = width;
+                        this.height = height;
+                    },
+                    Point: function(x, y) {
+                        this.x = x;
+                        this.y = y;
+                    },
+                    MarkerImage: function(src, size, options) {
+                        this.src = src;
+                        this.size = size;
+                        this.options = options;
+                    },
                     LatLng: function (lat, lng) {
                         this.lat = parseFloat(lat);
                         this.lng = parseFloat(lng);
@@ -239,69 +252,6 @@
                         };
                     },
                     Marker: function (options) {
-                        this.options = options;
-                        const pos = [options.position.lat, options.position.lng];
-                        this._leafletMarker = L.marker(pos);
-                        if (options.map) this._leafletMarker.addTo(options.map._leafletMap);
-
-                        this.setMap = (targetMap) => {
-                            if (targetMap) this._leafletMarker.addTo(targetMap._leafletMap);
-                            else this._leafletMarker.remove();
-                        };
-                    },
-                    CustomOverlay: function (options) {
-                        const pos = [options.position.lat, options.position.lng];
-                        const popup = L.popup({ closeButton: false, autoClose: false, closeOnClick: false })
-                            .setLatLng(pos)
-                            .setContent(options.content);
-
-                        this._leafletPopup = popup;
-                        if (options.map) popup.openOn(options.map._leafletMap);
-
-                        this.setMap = (targetMap) => {
-                            if (targetMap) popup.openOn(targetMap._leafletMap);
-                            else if (options.map) options.map._leafletMap.closePopup(popup);
-                        };
-                    },
-                    Polyline: function (options) {
-                        const latLngs = options.path.map(p => [p.lat, p.lng]);
-                        this._leafletPolyline = L.polyline(latLngs, { color: options.strokeColor || '#E63946', weight: 6, opacity: 0.8 });
-                        if (options.map) this._leafletPolyline.addTo(options.map._leafletMap);
-
-                        this.setMap = (targetMap) => {
-                            if (targetMap) this._leafletPolyline.addTo(targetMap._leafletMap);
-                            else this._leafletPolyline.remove();
-                        };
-
-                        this.getLength = () => {
-                            let totalDistance = 0;
-                            for (let i = 0; i < options.path.length - 1; i++) {
-                                const p1 = L.latLng(options.path[i].lat, options.path[i].lng);
-                                const p2 = L.latLng(options.path[i + 1].lat, options.path[i + 1].lng);
-                                totalDistance += p1.distanceTo(p2);
-                            }
-                            return totalDistance;
-                        };
-                    },
-                    event: {
-                        addListener: function (target, eventName, handler) {
-                            if (target._leafletMarker) target._leafletMarker.on('click', handler);
-                        }
-                    },
-                    services: {
-                        Status: { OK: 'OK' },
-                        SortBy: { ACCURACY: 'ACCURACY' },
-                        Places: function () {
-                            this.keywordSearch = function (keyword, callback) {
-                                const mockData = generateMockData(keyword, userLocation);
-                                setTimeout(() => callback(mockData, 'OK'), 100);
-                            };
-                        }
-                    }
-                }
-            };
-        }
-        Marker: function (options) {
                         this.options = options;
                         const pos = [options.position.lat, options.position.lng];
                         
@@ -377,7 +327,6 @@
             };
         }
 
-
         // 모의 데이터 생성 함수
         function generateMockData(keyword, baseLoc) {
             const presets = {
@@ -442,14 +391,25 @@
             }
         }
 
-        // 사용자 내 위치 표시 마커
+        // ★ [핵심] 사용자 내 위치 전용 커스텀 모양 마커 생성
         function renderUserLocationMarker() {
             if (userMarker) {
                 userMarker.setMap(null);
             }
             const pos = new kakao.maps.LatLng(userLocation.lat, userLocation.lng);
+
+            // 사용하고자 하는 커스텀 마커 이미지 URL 설정 (카카오 기본 빨간 별 핀 사용)
+            // 다른 이미지로 변경하려면 아래 URL을 원하는 이미지 링크(PNG/SVG)로 바꾸시면 됩니다.
+            const imageSrc = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png'; 
+            const imageSize = new kakao.maps.Size(24, 35); // 이미지 크기
+            const imageOption = { offset: new kakao.maps.Point(12, 35) }; // 이미지 앵커 위치
+
+            // 카카오 지도 마커 이미지 객체 생성
+            const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
+
             userMarker = new kakao.maps.Marker({
                 position: pos,
+                image: markerImage, // 지정한 커스텀 마커 이미지 적용
                 map: map
             });
         }
